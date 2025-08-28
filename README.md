@@ -177,5 +177,3 @@ Este projeto está sob a licença MIT. Veja o arquivo `LICENSE` para mais detalh
 ---
 
 **Zelo** - Revolucionando as carteiras compartilhadas no ecossistema Stellar 🚀
-
-*Construído com ❤️ e Next.js 14*
