@@ -201,4 +201,15 @@ Este projeto está sob a licença MIT.
 
 ## 📞 Suporte
 
+<<<<<<< HEAD
 Para dúvidas ou problemas, abra uma issue no repositório.
+=======
+- **Stellar Development Foundation** pelo ecossistema blockchain
+- **Next.js Team** pelo framework React incrível
+- **Tailwind CSS** pelos estilos utilitários
+- **Comunidade Open Source** por todas as contribuições
+
+---
+
+**Zelo** - Revolucionando as carteiras compartilhadas no ecossistema Stellar 🚀
+>>>>>>> 137eec1b63bc943fac5cce797d0d933be895d505
