@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { apiService, LoginRequest, RegisterRequest } from '../services/api'
 
 export interface Transaction {
   id: string
@@ -37,12 +38,16 @@ interface AppState {
   wallet: Wallet | null
   isAuthenticated: boolean
   isLoading: boolean
+  error: string | null
   
   // Actions
   login: (email: string, password: string) => Promise<void>
-  logout: () => void
+  register: (name: string, email: string, password: string) => Promise<void>
+  logout: () => Promise<void>
   createTransaction: (transaction: Omit<Transaction, 'id' | 'timestamp' | 'status'>) => void
   addMember: (email: string) => void
+  clearError: () => void
+  testApiConnection: () => Promise<void>
 }
 
 // Mock data
@@ -127,32 +132,116 @@ export const useStore = create<AppState>((set, get) => ({
   wallet: null,
   isAuthenticated: false,
   isLoading: false,
+  error: null,
 
   login: async (email: string, password: string) => {
-    set({ isLoading: true })
+    set({ isLoading: true, error: null })
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    if (email === 'demo@zelo.com' && password === 'demo123') {
-      set({
-        user: mockUser,
-        wallet: mockWallet,
-        isAuthenticated: true,
-        isLoading: false
+    try {
+      const response = await apiService.login({ email, senha: password })
+      
+      if (response.success && response.data) {
+        const { user, token } = response.data
+        
+        set({
+          user: {
+            id: user.id,
+            name: user.nome,
+            email: user.email,
+            avatar: `https://ui-avatars.com/api/?name=${user.nome}&background=8b5cf6&color=fff`
+          },
+          isAuthenticated: true,
+          isLoading: false,
+          error: null
+        })
+
+        // Tentar carregar dados da carteira
+        try {
+          const walletResponse = await apiService.getMyWallet()
+          if (walletResponse.success && walletResponse.data) {
+            set({
+              wallet: {
+                id: walletResponse.data.id,
+                name: 'Carteira Principal',
+                members: [get().user!],
+                balances: [{
+                  asset: 'BRL',
+                  amount: walletResponse.data.saldo.toString(),
+                  usdValue: walletResponse.data.saldo.toString()
+                }],
+                transactions: []
+              }
+            })
+          }
+        } catch (walletError) {
+          console.warn('Erro ao carregar carteira:', walletError)
+          // Usar dados mock se não conseguir carregar
+          set({ wallet: mockWallet })
+        }
+      } else {
+        throw new Error(response.message || 'Erro no login')
+      }
+    } catch (error) {
+      set({ 
+        isLoading: false, 
+        error: error instanceof Error ? error.message : 'Erro desconhecido'
       })
-    } else {
-      set({ isLoading: false })
-      throw new Error('Credenciais inválidas')
+      throw error
     }
   },
 
-  logout: () => {
-    set({
-      user: null,
-      wallet: null,
-      isAuthenticated: false
-    })
+  register: async (name: string, email: string, password: string) => {
+    set({ isLoading: true, error: null })
+    
+    try {
+      const response = await apiService.register({ nome: name, email, senha: password })
+      
+      if (response.success && response.data) {
+        const { user, token } = response.data
+        
+        set({
+          user: {
+            id: user.id,
+            name: user.nome,
+            email: user.email,
+            avatar: `https://ui-avatars.com/api/?name=${user.nome}&background=8b5cf6&color=fff`
+          },
+          isAuthenticated: true,
+          isLoading: false,
+          error: null
+        })
+
+        // Criar carteira para o novo usuário
+        try {
+          await apiService.createWallet()
+        } catch (walletError) {
+          console.warn('Erro ao criar carteira:', walletError)
+        }
+      } else {
+        throw new Error(response.message || 'Erro no registro')
+      }
+    } catch (error) {
+      set({ 
+        isLoading: false, 
+        error: error instanceof Error ? error.message : 'Erro desconhecido'
+      })
+      throw error
+    }
+  },
+
+  logout: async () => {
+    try {
+      await apiService.logout()
+    } catch (error) {
+      console.warn('Erro no logout:', error)
+    } finally {
+      set({
+        user: null,
+        wallet: null,
+        isAuthenticated: false,
+        error: null
+      })
+    }
   },
 
   createTransaction: (transactionData) => {
@@ -191,5 +280,32 @@ export const useStore = create<AppState>((set, get) => ({
         members: [...wallet.members, newMember]
       }
     })
+  },
+
+  clearError: () => {
+    set({ error: null })
+  },
+
+  testApiConnection: async () => {
+    set({ isLoading: true, error: null })
+    
+    try {
+      const { testApiConnection } = await import('../services/api')
+      const result = await testApiConnection()
+      
+      if (result.success) {
+        set({ error: null })
+        console.log('✅ Teste de comunicação bem-sucedido!')
+      } else {
+        set({ error: result.message })
+        console.error('❌ Teste de comunicação falhou:', result.message)
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido'
+      set({ error: errorMessage })
+      console.error('❌ Erro no teste de comunicação:', error)
+    } finally {
+      set({ isLoading: false })
+    }
   }
 }))
